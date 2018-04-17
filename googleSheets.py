@@ -2,9 +2,11 @@
 Shows basic usage of the Sheets API. Prints values from a Google Spreadsheet.
 """
 from __future__ import print_function
+
 from apiclient.discovery import build
 from httplib2 import Http
-from oauth2client import file, client, tools
+from oauth2client import client, file, tools
+
 SCOPES = 'https://sheets.googleapis.com/'
 SPREADSHEET_ID = '1mQIR3h6MIV8cEbIVjgRlZtTZtxhYzZLhxVaEQQruQZY'
 service = None
