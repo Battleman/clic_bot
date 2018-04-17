@@ -1,15 +1,14 @@
 """
 Shows basic usage of the Sheets API. Prints values from a Google Spreadsheet.
 """
-from __future__ import print_function
-
 from apiclient.discovery import build
 from httplib2 import Http
 from oauth2client import client, file, tools
+import json
 
 SCOPES = 'https://sheets.googleapis.com/'
 SPREADSHEET_ID = '1mQIR3h6MIV8cEbIVjgRlZtTZtxhYzZLhxVaEQQruQZY'
-service = None
+RANGE_NAME = 'Stock!A1:C6'
 
 def init():
     """ Setup the Sheets API"""
@@ -21,7 +20,7 @@ def init():
     service = build('sheets', 'v4', http=creds.authorize(Http()), cache_discovery=False)
     return service
 def getAllValues(serv):
-    RANGE_NAME = 'Stock!A1:C6'
+    
     result = serv.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID,
                                                 range=RANGE_NAME).execute()
     values = result.get('values', [])
@@ -29,3 +28,12 @@ def getAllValues(serv):
         print('No data found.')
     else:
         return values
+def appendValue(serv, vals):
+    body = {
+        "majorDimension": "ROWS",
+        "values": [
+            vals[0],vals[1],vals[2]
+        ],
+    }
+    return serv.spreadsheets().values().append(spreadsheetId=SPREADSHEET_ID, range='Stock!A7:C7', insertDataOption='INSERT_ROWS', valueInputOption='RAW', body=body)
+    # return success

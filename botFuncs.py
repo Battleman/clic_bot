@@ -3,7 +3,11 @@ import googleSheets
 
 commands = {'list':'List all items in stock', 'help':'This command help :)','quit':'stop the bot. For everyone. Forever.'}
 
-updater = Updater(token='512461432:AAFylLRostkwNvAxP43IcHI1cJ5NpRVqZko')
+token = ""
+with open('resources/tg-api-key.txt', mode='r') as config:
+    for l in config:
+        token = l
+updater = Updater(token=token)
 
 def start(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="I'm a bot, please talk to me!")    
@@ -25,5 +29,14 @@ def helper(bot, update):
     helpBody = "\n".join(["{}\t\t{}".format(x, commands[x]) for x in commands])
     bot.send_message(chat_id=update.message.chat_id, text=helpHeader+helpBody)
 def echo(bot, update):
-    print(update.message.text)
     bot.send_message(chat_id=update.message.chat_id, text=update.message.text)
+
+def addItem(bot, update, args):
+    serv = googleSheets.init()
+    success = googleSheets.appendValue(serv, args)
+    print("Success is", success.to_json())
+    if(success):
+        message = "Successfully added this item"
+    else:
+        message = "Failed to add.. please refer to an admin"
+    bot.send_message(chat_id=update.message.chat_id, text=message)

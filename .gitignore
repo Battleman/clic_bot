@@ -1,3 +1,4 @@
-client_secret.json
-credentials.json
-
+resources/client_secret.json
+resources/credentials.json
+resources/tg-api-key.txt
+__pycache*

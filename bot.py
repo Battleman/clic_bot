@@ -16,13 +16,14 @@ def addHandlers():
     unknown_handler = MessageHandler(Filters.command, botFuncs.unknown)
     echo_handler = MessageHandler(Filters.text, botFuncs.echo)
     help_handler = CommandHandler('help',botFuncs.helper)
-
+    addItem_handler = CommandHandler('new',botFuncs.addItem, pass_args=True)
+    
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(quit_handler)
     dispatcher.add_handler(list_handler)
     dispatcher.add_handler(echo_handler)
     dispatcher.add_handler(help_handler)
-
+    dispatcher.add_handler(addItem_handler)
     ##ALWAYS LAST !!
     dispatcher.add_handler(unknown_handler)
     print("All handlers added !")
