@@ -1,4 +1,4 @@
-resources/client_secret.json
-resources/credentials.json
-resources/tg-api-key.txt
-__pycache*
+client_secret.json
+credentials.json
+config.yaml
+__pycache__*
