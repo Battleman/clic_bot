@@ -1,0 +1,6 @@
+CLICSTOCK_BOTNAME: "@clicStock_bot"
+CLICSTOCK_TOKEN: "your-telegram-bot-token"
+CLIC_CLIENT-SECRET-JSON: 'json secret for google API'
+CLIC_SHEET_SCOPE: "https://www.googleapis.com/auth/spreadsheets"
+CLIC_SHEETID: "the ID of the sheet"
+OWNER_ID: 84129456
