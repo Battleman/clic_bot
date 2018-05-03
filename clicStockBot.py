@@ -26,17 +26,25 @@ BOTNAME = config['CLICSTOCK_BOTNAME']
 SPREADSHEET_ID = config['CLIC_SHEETID']
 SCOPE = config['CLIC_SHEET_SCOPE']
 OWNER_ID = config['OWNER_ID']
-VALUES_RANGE = "Stock!A1:C4"
-commands = {'list':'List all items in stock', 'help':'This command help :)','quit':'stop the bot. For everyone. Forever.'}
+VALUES_RANGE_START = config['CLICSTOCK_VALUES_STARTRANGE']
 
+commands = {'list':'List all items in stock', 
+            'help':'This command help :)',
+            'quit':'stop the bot. For everyone. Forever.',
+            'identify' : 'Let the owner know your TG ID. Only useful for admins.',
+            'new' : 'Add an item to the stock'
+            }
 
-"""
+#####################
 # Configure Logging
-"""
+
 FORMAT = '%(asctime)s -- %(levelname)s -- %(module)s %(lineno)d -- %(message)s'
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger('root')
 logger.info("Running "+sys.argv[0])
+
+############################
+# Telegram functions
 
 def tg_start(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="I'm a bot, please talk to me!")    
@@ -49,8 +57,11 @@ def tg_quit(bot, update):
         sys.exit()
 def tg_listItems(bot, update):
     values = gs_getAllValues()
+    print("[LIST] raw values are:",values)
     titre = "{}\t\t{}\t\t{}\n".format(values[0][0],values[0][1],values[0][2])
-    content="\n".join(["{}\t\t{}\t\t{}".format(v[0],v[1],v[2]) for v in values[1:]])
+    content="\n\n".join(["{}\t\t{}\t\t{}".format(v[0],v[1],v[2]) if len(v) == 3 
+        else "{}\t\t{}".format(v[0],v[1]) for v in values[1:] if len(v) > 1])
+    # content+="\n\n"+"\n\n".join([)
     s = titre + content
     bot.send_message(chat_id=update.message.chat_id, text="The following articles are in stock:\n{}".format(s))
 def tg_unknown(bot, update):
@@ -62,29 +73,38 @@ def tg_helper(bot, update):
 def tg_echo(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text=update.message.text)
 def tg_addItem(bot, update, args):
-    success = gs_appendValue(args)
-    print("Success is", success)
-    if(success):
-        message = "Successfully added this item"
+    items = gs_getValuesFromResponse(gs_getValuesResponse()).values()
+    if args[0].lower() in items:
+        message = "This item already exists in the stock"
     else:
-        message = "Failed to add.. please refer to an admin"
+        success = gs_appendValue(args)
+        if(success['updates']['updatedCells'] == len(args)):
+            message = "Successfully added this item"
+        else:
+            message = "Failed to add.. please refer to an admin"
     bot.send_message(chat_id=update.message.chat_id, text=message)
-def tg_getChatID(bot, update): 
+def tg_getChatID(bot, update, args): 
     id = update.message.chat_id
-    print("User with ID {} just identified himself".format(id))
+    if len(args) > 0:
+        print("User with ID {} just identified himself as {}".format(id, args[0]))
+    else:
+        print("User with ID {} just identified himself anonymously".format(id))
     return id
 
-"""
+
+###############################33
 #   Google Sheet functions
-"""
+
 def gs_appendValue(vals):
     service = gs_getService()
+    if len(vals) == 2:
+        vals += [""]
     bdy = [[vals[0], vals[1], vals[2]]]
     resource = {
                 "majorDimension": "ROWS",
                 "values": bdy
         }
-    range = "Stock!A7:C7"
+    range = "Stock!A2:C2"
     response = service.spreadsheets().values().append(
         spreadsheetId=SPREADSHEET_ID,
         range=range,
@@ -92,17 +112,15 @@ def gs_appendValue(vals):
         valueInputOption="USER_ENTERED"
     ).execute()
     return response
-
-def gs_init():
-    print("Scope is", SCOPE)
-    store = file.Storage('credentials.json')
-    creds = store.get()
-    if not creds or creds.invalid:
-        flow = client.flow_from_clientsecrets('client_secret.json', SCOPE)
-        creds = tools.run_flow(flow, store)
-    service = build('sheets', 'v4', http=creds.authorize(Http()), cache_discovery=False)
-
-
+# def gs_init():
+#     print("Scope is", SCOPE)
+#     store = file.Storage('credentials.json')
+#     creds = store.get()
+#     if not creds or creds.invalid:
+#         flow = client.flow_from_clientsecrets('client_secret.json', SCOPE)
+#         creds = tools.run_flow(flow, store)
+#     service = build('sheets', 'v4', http=creds.authorize(Http()), cache_discovery=False)
+#     return service
 def gs_getService():
         """ Setup the Sheets API"""
         store = file.Storage('credentials.json')
@@ -112,27 +130,52 @@ def gs_getService():
             creds = tools.run_flow(flow, store)
         service = build('sheets', 'v4', http=creds.authorize(Http()), cache_discovery=False)
         return service
-def gs_getValuesRange():
-    pass
-
-def gf_getNewLineRange():
-    pass
-
+def gs_getValuesResponse():
+    service = gs_getService()
+    body = {
+        "majorDimension": "ROWS",
+        "dataFilters": [
+            {
+                "gridRange": {
+                "endColumnIndex": 1,
+                "sheetId": 0,
+                "startColumnIndex": 0,
+                "startRowIndex": 1
+                }
+            }
+        ],
+        "valueRenderOption": "UNFORMATTED_VALUE"
+    }
+    response = service.spreadsheets().values().batchGetByDataFilter(
+        spreadsheetId=SPREADSHEET_ID,
+        body=body
+    ).execute()
+    print("Response to the getValueRange is\n", response)
+    return response
+def gs_getValuesFromResponse(response):
+    values = [x[0].lower() for x in response['valueRanges'][0]['valueRange']['values'] if len(x) > 0]
+    withPos = dict(enumerate(values))
+    print(withPos)
+    return withPos
 def gs_getAllValues():
+        range = "Stock!A:C"
         result = gs_getService().spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID,
-                                                    range=VALUES_RANGE).execute()
+                                                    range=range).execute()
         values = result.get('values', [])
         if not values:
             print('No data found.')
         else:
             return values
+    
+def gs_UpdateValue():
+    service = gs_getService()
 
 
 ###########################
 # Begin bot
 
 clicBot = telegram.Bot(token = TOKEN)
-updater = Updater(bot=clicBot, workers=10)
+updater = Updater(bot=clicBot)
 
 dispatcher = updater.dispatcher
 
@@ -142,10 +185,9 @@ dispatcher.add_handler(MessageHandler(Filters.text, tg_echo))
 dispatcher.add_handler(CommandHandler('start',tg_start))
 dispatcher.add_handler(CommandHandler('help',tg_helper))
 dispatcher.add_handler(CommandHandler('new',tg_addItem, pass_args=True))
-dispatcher.add_handler(CommandHandler('identify',tg_getChatID))
+dispatcher.add_handler(CommandHandler('identify',tg_getChatID, pass_args=True))
 dispatcher.add_handler(MessageHandler(Filters.command, tg_unknown))
 
-gs_init()
 logger.info("Starting polling")
 updater.start_polling()
 
