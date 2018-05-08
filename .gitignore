@@ -2,3 +2,4 @@ client_secret.json
 credentials.json
 config.yaml
 __pycache__*
+myfile.py
