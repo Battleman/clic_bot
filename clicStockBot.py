@@ -8,6 +8,8 @@ from pprint import pprint
 from dateutil.parser import parse
 import telegram
 import yaml
+import schedule
+import time
 from apiclient.discovery import build
 from httplib2 import Http
 from oauth2client import client, file, tools
@@ -232,6 +234,8 @@ def tg_updateValue(bot, update, args):
         bot.send_message(chat_id=update.message.chat_id,
                          text=config['UPDATE_NOT_OK'])
 
+def check_expiry():
+    logger.info("The cron works !")
 
 ########################
 #   Google Sheet functions
@@ -337,12 +341,19 @@ def gs_UpdateValue(row, value, comment=False):
     return(response)
 
 
+##########################
+# Cron for expiry dates
+
 ###########################
 # Begin bot
 
 request = Request(con_pool_size=8)
 clicBot = telegram.Bot(token=TOKEN, request=request)
 updater = Updater(bot=clicBot)
+
+# schedule.every().day.at("12:00").do(check_expiry())
+schedule.every(1).minutes.do(check_expiry)
+
 
 dispatcher = updater.dispatcher
 
@@ -370,7 +381,6 @@ dispatcher.add_handler(MessageHandler(Filters.command, tg_unknown))
 logger.info("Starting polling")
 updater.start_polling()
 
-
 ######################
 #       UTILS
 
@@ -396,5 +406,7 @@ def parseListCommas(l):
     return placeholder
 
 
-##########################
-# Cron for expiry dates
+while 1:
+    schedule.run_pending()
+    time.sleep(30)
+
