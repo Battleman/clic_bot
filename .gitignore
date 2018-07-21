@@ -3,3 +3,5 @@ credentials.json
 config.yaml
 __pycache__*
 myfile.py
+registered.txt
+.vscode*
