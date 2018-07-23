@@ -16,18 +16,18 @@ from pprint import pprint
 
 import schedule
 import yaml
-from uuid import uuid4
-from telegram.utils.helpers import escape_markdown
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup,\
-    InlineQueryResultArticle, InlineQueryResult, InputTextMessageContent,\
-    ParseMode
-from telegram.ext import CommandHandler, Filters, MessageHandler,\
-    Updater, CallbackQueryHandler, InlineQueryHandler
-from telegram.utils.request import Request
 from apiclient.discovery import build
 from dateutil.parser import parse
 from httplib2 import Http
 from oauth2client import client, file, tools
+# from uuid import uuid4
+# from telegram.utils.helpers import escape_markdown
+from telegram import (Bot, ChatAction, InlineKeyboardButton,
+                      InlineKeyboardMarkup, InputTextMessageContent,
+                      KeyboardButton, ParseMode, ReplyKeyboardMarkup)
+from telegram.ext import (CallbackQueryHandler, CommandHandler, Filters,
+                          MessageHandler, Updater)
+from telegram.utils.request import Request
 
 # ########
 # Load the config file
@@ -79,7 +79,7 @@ COMMANDS = {'list': 'List all items in stock',
                          "Every day at 12h00, you'll receive a message about"
                          " the next and currently  expired items"
             }
-
+CURR_PAGE = 0
 
 #####################
 # Configure Logging
@@ -120,6 +120,8 @@ def tg_list_items(bot, update):
     TELEGRAM FUNCTION
     List all items in the stock
     """
+    bot.send_chat_action(chat_id=update.message.chat_id,
+                         action=ChatAction.TYPING)
     values = gs_get_all_values()
     columns = values[0]
     items = values[1:]
@@ -134,13 +136,15 @@ def pprint_tg(update,
     Send a message formatted nicely
     """
     line = "{},\t\t"*(NUM_COLS-1) + "{}"
+    line_title = "*{}*,\t\t"*(NUM_COLS-1) + "{}"
     content = "\n\n".join([line.format(elem[NUM_COL_NAME],
                                        elem[NUM_COL_QTY],
                                        elem[NUM_COL_UNIT],
                                        elem[NUM_COL_EXPIRY])
                            for elem in items_list])
-    cols = line.format(*columns)
-    update.message.reply_text(header+cols+"\n"+content)
+    cols = line_title.format(*columns)
+    update.message.reply_text(text=header+cols+"\n"+content,
+                              parse_mode=ParseMode.MARKDOWN)
 
 
 def tg_unknown(bot, update):
@@ -168,11 +172,13 @@ def tg_add_item(bot, update, args):
     TELEGRAM FUNCTION
     Add an item to the stock
     """
+    bot.send_chat_action(chat_id=update.message.chat_id,
+                         action=ChatAction.TYPING)
     new_obj = parse_list_commas(args)
     if len(new_obj) < MIN_NUM_COLS or len(new_obj) > NUM_COLS:
-        message = "You need to specify the object, quantity, unit and " +
-        "optionally the expiry date (commas separated), no more"
-        update.message.reply_text(message)
+        update.message.reply_text("You need to specify the object, "
+                                  "quantity, unit and optionally the expiry"
+                                  "date (commas separated), no more")
         return
 
     # at this point, we have between MIN_NUM_COLS and NUM_COLS columns
@@ -346,6 +352,17 @@ def tg_unsubscribe_expiry(bot, update):
     update.message.reply_text(message)
 
 
+def build_menu(buttons, n_cols,
+               header_buttons=None,
+               footer_buttons=None):
+    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+    if header_buttons:
+        menu.insert(0, header_buttons)
+    if footer_buttons:
+        menu.append(footer_buttons)
+    return menu
+
+
 def check_expiry(bot, update=None):
     """
     Check in the stock for items that are expired or will be in the next 7 days
@@ -388,6 +405,44 @@ def check_expiry(bot, update=None):
         update.message.reply_text(message)
 
 
+def partial_list(slice=0):
+    mydata = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    txt = "{},{},{}".format(*mydata[slice:slice+3])
+    return txt
+
+
+def keyboard_list():
+    button_list = [
+        InlineKeyboardButton("next", callback_data="list_next"),
+        InlineKeyboardButton("prev", callback_data="list_prev"),
+        InlineKeyboardButton("close", callback_data="list_close")
+    ]
+    reply_markup = InlineKeyboardMarkup(build_menu(button_list, 2))
+    return reply_markup
+
+
+def test(bot, update, slice=0):
+    bot.send_message(chat_id=update.message.chat_id,
+                     text=partial_list(0),
+                     reply_markup=keyboard_list())
+
+
+def button(bot, update):
+    query = update.callback_query
+    if query.data == "list_close":
+        CURR_PAGE = 0
+        keyboard = None
+    else:
+        keyboard = keyboard_list()
+        if query.data == "list_next":
+            CURR_PAGE += 1
+        elif query.data == "list_prev":
+            CURR_PAGE -= 1
+
+        bot.edit_message_text(text=partial_list(CURR_PAGE),
+                              chat_id=query.message.chat_id,
+                              message_id=query.message.message_id,
+                              reply_markup=keyboard)
 ########################
 # Google Sheet functions
 ########
@@ -547,6 +602,9 @@ DISPATCHER.add_handler(CommandHandler(
     'subscribe', tg_subscribe_expiry))
 DISPATCHER.add_handler(CommandHandler(
     'unsub', tg_unsubscribe_expiry))
+DISPATCHER.add_handler(CommandHandler(
+    'test', test))
+DISPATCHER.add_handler(CallbackQueryHandler(button))
 
 # DISPATCHER.add_handler(CommandHandler(
 #     'expire', check_expiry))
