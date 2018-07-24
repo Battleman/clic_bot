@@ -12,15 +12,15 @@ import sys
 # import time
 from datetime import datetime, timedelta
 
-import schedule
+# import schedule
 # import yaml
-from apiclient.discovery import build
+from googleapiclient.discovery import build
 from dateutil.parser import parse
 from httplib2 import Http
 from oauth2client import client, file, tools
 from telegram import Bot
 from telegram.ext import CommandHandler, Filters, MessageHandler, Updater
-from telegram.utils.helpers import escape_markdown
+# from telegram.utils.helpers import escape_markdown
 from telegram.utils.request import Request
 
 from utils import open_yaml, setup_logging
@@ -53,12 +53,16 @@ COMMANDS = {'list': 'List all items in stock',
 # Telegram functions
 
 class Telegram():
-    def __init__(self, *args, **kwargs):
+    """
+    Represent the bot class
+    """
+
+    def __init__(self, config_file):
         self.logger = logging.getLogger(__name__)
         self.logger.info("Setting up Telegram object !")
         try:
             self.logger.info("Opening config file")
-            self.config = open_yaml("config.yaml")
+            self.config = open_yaml(config_file)
         except FileNotFoundError:
             self.logger.critical("Configuration file not found, exiting")
             sys.exit()
@@ -78,30 +82,34 @@ class Telegram():
         """
         Add the handlers to the bot
         """
-        self.dispatcher.add_handler(CommandHandler(
-            'start', self.tg_start))
-        self.dispatcher.add_handler(CommandHandler(
-            'quit', self.tg_quit))
-        self.dispatcher.add_handler(CommandHandler(
-            'list', self.tg_list_items))
-        self.dispatcher.add_handler(CommandHandler(
-            'update', self.tg_update_value, pass_args=True))
-        self.dispatcher.add_handler(CommandHandler(
-            'help', self.tg_helper))
-        self.dispatcher.add_handler(CommandHandler(
-            'new', self.tg_add_item, pass_args=True))
-        self.dispatcher.add_handler(CommandHandler(
-            'identify', self.tg_get_chat_id, pass_args=True))
-        self.dispatcher.add_handler(CommandHandler(
-            'search', self.tg_search_item, pass_args=True))
-        self.dispatcher.add_handler(CommandHandler(
-            'subscribe', self.tg_subscribe_expiry))
-        self.dispatcher.add_handler(CommandHandler(
-            'unsub', self.tg_unsubscribe_expiry))
-        self.dispatcher.add_handler(MessageHandler(
-            Filters.command, self.tg_unknown))
+        self.dispatcher.add_handler(CommandHandler('start',
+                                                   self.tg_start))
+        self.dispatcher.add_handler(CommandHandler('quit',
+                                                   self.tg_quit))
+        self.dispatcher.add_handler(CommandHandler('list',
+                                                   self.tg_list_items))
+        self.dispatcher.add_handler(CommandHandler('update',
+                                                   self.tg_update_value,
+                                                   pass_args=True))
+        self.dispatcher.add_handler(CommandHandler('help',
+                                                   self.tg_helper))
+        self.dispatcher.add_handler(CommandHandler('new',
+                                                   self.tg_add_item,
+                                                   pass_args=True))
+        self.dispatcher.add_handler(CommandHandler('identify',
+                                                   self.tg_get_chat_id,
+                                                   pass_args=True))
+        self.dispatcher.add_handler(CommandHandler('search',
+                                                   self.tg_search_item,
+                                                   pass_args=True))
+        self.dispatcher.add_handler(CommandHandler('subscribe',
+                                                   self.tg_subscribe_expiry))
+        self.dispatcher.add_handler(CommandHandler('unsub',
+                                                   self.tg_unsubscribe_expiry))
+        self.dispatcher.add_handler(MessageHandler(Filters.command,
+                                                   self.tg_unknown))
 
-    def tg_start(self, bot, update):
+    def tg_start(self, _, update):
         """
         TELEGRAM FUNCTION
         Mandatory bot starting function
@@ -109,7 +117,7 @@ class Telegram():
         self.logger.info("User %d started !", update.message.chat_id)
         update.message.reply_text('Hi!')
 
-    def tg_quit(self, bot, update):
+    def tg_quit(self, _, update):
         """
         TELEGRAM FUNCTION
         Stop the bot. For admin only.
@@ -122,7 +130,7 @@ class Telegram():
             self.updater.stop()
             sys.exit()
 
-    def tg_list_items(self, bot, update):
+    def tg_list_items(self, _, update):
         """
         TELEGRAM FUNCTION
         List all items in the stock
@@ -149,14 +157,14 @@ class Telegram():
         cols = line.format(*columns)
         update.message.reply_text(header+cols+"\n"+content)
 
-    def tg_unknown(self, bot, update):
+    def tg_unknown(self, _, update):
         """
         TELEGRAM FUNCTION
         Reaction when the command is unknown
         """
         update.message.reply_text("Sorry, I didn't understand that command.")
 
-    def tg_helper(self, bot, update):
+    def tg_helper(self, _, update):
         """
         TELEGRAM FUNCTION
         Help the user
@@ -167,7 +175,7 @@ class Telegram():
                                for x in COMMANDS])
         update.message.reply_text(help_header+help_body)
 
-    def tg_add_item(self, bot, update, args):
+    def tg_add_item(self, _, update, args):
         """
         TELEGRAM FUNCTION
         Add an item to the stock
@@ -224,7 +232,7 @@ class Telegram():
                 message = "Failed to add... please refer to an admin"
         update.message.reply_text(message)
 
-    def tg_get_chat_id(self, bot, update, args):
+    def tg_get_chat_id(self, _, update, args):
         """
         TELEGRAM FUNCTION
         Let a user be known to the admin
@@ -238,7 +246,7 @@ class Telegram():
                              user_id)
         return user_id
 
-    def tg_search_item(self, bot, update, args):
+    def tg_search_item(self, _, update, args):
         """
         TELEGRAM FUNCTION
         Search an item in the stock
@@ -256,9 +264,9 @@ class Telegram():
             if i[self.stock.num_col_name].lower().find(word.lower()) >= 0:
                 result += [i]
 
-        self.pprint_tg(bot, update, result)
+        self.pprint_tg(update, result)
 
-    def tg_update_value(self, bot, update, args):
+    def tg_update_value(self, _, update, args):
         """
         TELEGRAM FUNCTION
         Update an item in the stock (e.g. its quantity in stock)
@@ -296,7 +304,7 @@ class Telegram():
         elif len(index) > 1:
             header = self.config['ERROR_UPDATE_TOO_MANY_MATCH']
             names = index  # TODO keep only names
-            self.pprint_tg(bot, update.message.chat_id, names, header)
+            self.pprint_tg(update, names, header)
             return
         obj_pos = index[0][0]  # TODO Check this is correct
         # find new value according to relativity
@@ -310,7 +318,7 @@ class Telegram():
         else:
             update.message.reply_text(self.config['UPDATE_NOT_OK'])
 
-    def tg_subscribe_expiry(self, bot, update):
+    def tg_subscribe_expiry(self, _, update):
         """
         TELEGRAM FUNCTION
         Subscribe a user to the expiry alerts
@@ -329,7 +337,7 @@ class Telegram():
                 message = "Something wrong happened... contact an admin"
                 update.message.reply_text(message)
 
-    def tg_unsubscribe_expiry(self, bot, update):
+    def tg_unsubscribe_expiry(self, _, update):
         """
         TELEGRAM FUNCTION
         Unsubscribe a user to the expiry alerts
@@ -407,7 +415,16 @@ class Telegram():
 ########
 
 class Google():
-    def __init__(self, *args, **kwargs):
+    """
+    A class for all the Google objects. This should not be used per se,
+    but used as a superclass for concrete google object
+    """
+
+    def __init__(self):
+        """
+        Start a google object. Initialize all that is common to any google
+        object (doc, sheet, drive,...)
+        """
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initiating google object")
         try:
@@ -430,11 +447,19 @@ class Google():
 
 
 class Doc(Google):
-    def __init__(self, *args, **kwargs):
+    """
+    A subclass of Google: represents Google Doc objects
+    """
+
+    def __init__(self):
         super().__init__(args, kwargs)
 
 
 class Sheets(Google):
+    """
+    A subclass of Google: represents Google Sheets objects
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(args, kwargs)
         self.spreadsheet_id = self.config['CLIC_SHEETID']
@@ -580,10 +605,13 @@ class Sheets(Google):
 # schedule.every(1).minutes.do(check_expiry, clicBot)
 
 def main():
+    """
+    Start the bot
+    """
     setup_logging()
     logger = logging.getLogger(__name__)
     logger.info("Starting polling")
-    tg_bot = Telegram()
+    tg_bot = Telegram("config.yaml")
     tg_bot.updater.start_polling()
     tg_bot.updater.idle()
     # while True:
