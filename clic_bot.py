@@ -54,7 +54,7 @@ COMMANDS = {'list': 'List all items in stock',
 
 class Telegram():
     """
-    Represent the bot class
+    Represent the bot class. One instance per bot.
     """
 
     def __init__(self, config_file):
