@@ -5,3 +5,4 @@ __pycache__*
 myfile.py
 registered.txt
 .vscode*
+test_inline.py
