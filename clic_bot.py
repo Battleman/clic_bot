@@ -452,7 +452,7 @@ class Doc(Google):
     """
 
     def __init__(self):
-        super().__init__(args, kwargs)
+        super().__init__()
 
 
 class Sheets(Google):
@@ -460,8 +460,8 @@ class Sheets(Google):
     A subclass of Google: represents Google Sheets objects
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(args, kwargs)
+    def __init__(self):
+        super().__init__()
         self.spreadsheet_id = self.config['CLIC_SHEETID']
         self.scope = self.config['CLIC_SHEET_SCOPE']
         self.col_start = self.config['COL_START']
